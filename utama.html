@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hive Blockchain - Postingan Terbaru</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f7f7f7;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    #post-list {
+      margin-top: 20px;
+      list-style: none;
+      padding: 0;
+    }
+    #post-list li {
+      background-color: white;
+      margin: 10px 0;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #post-list a {
+      text-decoration: none;
+      color: #333;
+      font-size: 18px;
+    }
+    #post-list a:hover {
+      color: #007bff;
+    }
+  </style>
+</head>
+<body>
+  <h1>Postingan Terbaru di Hive</h1>
+
+  <div id="loading-message" style="text-align: center; font-size: 18px;">Memuat postingan...</div>
+  <ul id="post-list"></ul>
+
+  <script src="https://cdn.jsdelivr.net/npm/hive-js@1.0.0-beta.13/dist/hive.js"></script>
+  <script>
+    // Fungsi untuk mengambil postingan terbaru dari Hive
+    async function getLatestPosts() {
+      try {
+        // Ambil postingan terbaru (10 postingan terakhir)
+        const posts = await hive.api.getDiscussionsByAuthorBeforeDate('', '', 10, null);
+
+        // Menyembunyikan pesan loading
+        document.getElementById('loading-message').style.display = 'none';
+
+        // Menyiapkan HTML untuk daftar postingan
+        let postListHtml = '';
+        posts.forEach(post => {
+          postListHtml += `
+            <li>
+              <a href="https://peakd.com/@${post.author}/${post.permlink}" target="_blank">
+                ${post.title}
+              </a>
+              <p>Oleh: ${post.author} | Dibuat pada: ${new Date(post.created).toLocaleString()}</p>
+            </li>
+          `;
+        });
+
+        // Menampilkan daftar postingan
+        document.getElementById('post-list').innerHTML = postListHtml;
+
+      } catch (error) {
+        console.error('Error saat mengambil postingan Hive:', error);
+        document.getElementById('loading-message').innerText = 'Gagal memuat postingan.';
+      }
+    }
+
+    // Memanggil fungsi untuk menampilkan postingan saat halaman dimuat
+    getLatestPosts();
+  </script>
+</body>
+</html>
