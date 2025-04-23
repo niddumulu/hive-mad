@@ -1,82 +1,275 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hive Blockchain - Postingan Terbaru</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background-color: #f7f7f7;
-    }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
-    #post-list {
-      margin-top: 20px;
-      list-style: none;
-      padding: 0;
-    }
-    #post-list li {
-      background-color: white;
-      margin: 10px 0;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    #post-list a {
-      text-decoration: none;
-      color: #333;
-      font-size: 18px;
-    }
-    #post-list a:hover {
-      color: #007bff;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Latest Posts on Hive</title>
+    <script src="https://cdn.jsdelivr.net/npm/@hiveio/hive-js/dist/hive.min.js"></script>
+    <script>
+        // Set Hive API options
+        hive.api.setOptions({ url: 'https://api.hive.blog' });
+
+        let refreshTime = 60; // Waktu mundur dalam detik (60 detik)
+        let isPaused = false; // Flag to track if the countdown is paused
+        let timer; // To store the countdown interval
+
+        function searchLatestPosts() {
+            var query = {
+                limit: 20, // Fetch latest 20 posts to filter later
+                tag: '' // No specific tag
+            };
+
+            hive.api.getDiscussionsByCreated(query, function(err, result) {
+                if (err) {
+                    console.error("Error fetching latest discussions:", err);
+                    document.getElementById('discussionsList').innerHTML = "<p>Error fetching posts.</p>";
+                } else {
+                    var output = document.getElementById('discussionsList');
+                    output.innerHTML = ''; // Clear previous results
+                    var tableBody = document.getElementById('tableBody');
+                    tableBody.innerHTML = ''; // Clear previous table data
+                    var articleContentDiv = document.getElementById('articleContent');
+                    articleContentDiv.innerHTML = ''; // Clear previous article content
+
+                    // Filter posts to get only those with word count >= 200
+                    let validPosts = result.filter(function(discussion) {
+                        let wordCount = discussion.body.split(/\s+/).length; // Count words
+                        return wordCount >= 200; // Only keep posts with more than or equal to 200 words
+                    });
+
+                    if (validPosts.length > 0) {
+                        // Randomly pick one post from the filtered posts
+                        let randomIndex = Math.floor(Math.random() * validPosts.length);
+                        let selectedPost = validPosts[randomIndex];
+
+                        let row = ` 
+                            <tr style="background-color: #FFD700;"> <!-- Always yellow for valid posts -->
+                                <td>1</td>
+                                <td>${selectedPost.author}</td>
+                                <td><a href="https://hive.blog/@${selectedPost.author}/${selectedPost.permlink}" target="_blank">${selectedPost.title}</a></td>
+                                <td>${selectedPost.body.split(/\s+/).length}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="4">
+                                    <a href="https://hive.blog/@${selectedPost.author}/${selectedPost.permlink}" target="_blank" id="postLink">
+                                        https://hive.blog/@${selectedPost.author}/${selectedPost.permlink}
+                                    </a>
+                                    <button onclick="copyLink()">Copy Link</button> <!-- Button to copy the link -->
+                                </td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+
+                        // Process the article content to remove images and display text
+                        let contentBody = selectedPost.body;
+
+                        // Remove image URLs (including image hosting services like images.hive.blog, images.ecency.com, and any .jpg/.png links)
+                        contentBody = contentBody.replace(/https:\/\/(?:images\.hive\.blog|images\.ecency\.com)[^\s]+/g, ''); // Remove image links
+                        contentBody = contentBody.replace(/\bhttps?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|bmp|webp)\b/g, ''); // Remove .jpg, .jpeg, .png, .gif, .bmp, .webp image links
+
+                        // Add the content below the table in a textarea for easy copying
+                        articleContentDiv.innerHTML = ` 
+                            <h2>Article Content</h2>
+                            <textarea id="contentToCopy" rows="10" style="width: 100%; font-family: monospace; background-color: #f9f9f9;" readonly>
+Buatkan sebuah komentar dalam bahasa Inggris atau bahasa yang sesuai dengan artikel di bawah ini. Komentar harus relevan dengan topik yang dibahas dalam artikel, setidaknya 95% relevan. Jumlah kata bervariasi antara 115 sd 150 kata. Gaya penulisannya harus seperti anak berusia 10 tahun yang menyenangkan dan agak serius. Jika artikel menyebutkan nama orang, tempat, atau benda tertentu, sebutkan juga dalam komentar salahsatunya. Hasil dari chatgpt jangan ditambahi kata-kata lain, selain sebuah komentar. diakhir komentar setidaknya menanyakan sesuatu. 
+Berikut adalah konten yang perlu ditanggapi :
+
+${contentBody}</textarea>
+                            <button onclick="copyContent()">Copy Content</button>
+                        `;
+                    }
+                }
+            });
+        }
+
+        // Countdown timer for auto-refresh
+        function startCountdown() {
+            let countdown = document.getElementById('countdown');
+            timer = setInterval(() => {
+                if (!isPaused) {
+                    countdown.innerText = refreshTime + " detik";
+                    refreshTime--;
+
+                    if (refreshTime < 0) {
+                        clearInterval(timer);
+                        refreshTime = 60; // Reset timer to 60 seconds
+                        searchLatestPosts(); // Refresh posts
+                        startCountdown(); // Restart countdown
+                    }
+                }
+            }, 1000);
+        }
+
+        // Pause the countdown
+        function pauseCountdown() {
+            isPaused = true;
+        }
+
+        // Resume the countdown
+        function playCountdown() {
+            isPaused = false;
+        }
+
+        // Function to copy the content to clipboard
+        function copyContent() {
+            var contentText = document.getElementById('contentToCopy');
+            contentText.select();
+            contentText.setSelectionRange(0, 99999); // For mobile devices
+            document.execCommand("copy");
+
+            showCopiedMessage("Content copied to clipboard!");
+        }
+
+        // Function to copy the link to clipboard
+        function copyLink() {
+            var link = document.getElementById('postLink');
+            var range = document.createRange();
+            range.selectNode(link);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            document.execCommand("copy");
+
+            showCopiedMessage("Link copied to clipboard!");
+        }
+
+        // Function to display the copied message at the top of the page
+        function showCopiedMessage(message) {
+            var copiedMessageDiv = document.getElementById('copiedMessage');
+            copiedMessageDiv.innerHTML = message;
+            copiedMessageDiv.style.display = 'block';
+
+            // Hide the message after 3 seconds
+            setTimeout(function() {
+                copiedMessageDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Automatically load posts and start countdown when the page loads
+        window.onload = function () {
+            searchLatestPosts();
+            startCountdown();
+        };
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        .mypage {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        h1 {
+            font-size: 22px;
+            margin-bottom: 20px;
+            padding-top: 20px; /* Adjusted space at the top */
+        }
+        p {
+            font-size: 14px;
+            color: #555;
+        }
+        #countdown {
+            font-size: 18px;
+            font-weight: bold;
+            color: red;
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            background: #fff;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #007BFF;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        tr:hover {
+            background: #f1f1f1;
+        }
+        a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        #articleContent {
+            margin-top: 20px;
+            text-align: left;
+            font-size: 14px;
+            color: #333;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        /* Style for the copied message */
+        #copiedMessage {
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+            font-size: 16px;
+            border-radius: 5px;
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+        }
+    </style>
 </head>
 <body>
-  <h1>Postingan Terbaru di Hive</h1>
-
-  <div id="loading-message" style="text-align: center; font-size: 18px;">Memuat postingan...</div>
-  <ul id="post-list"></ul>
-
-  <script src="https://cdn.jsdelivr.net/npm/hive-js@1.0.0-beta.13/dist/hive.js"></script>
-  <script>
-    // Fungsi untuk mengambil postingan terbaru dari Hive
-    async function getLatestPosts() {
-      try {
-        // Ambil postingan terbaru (10 postingan terakhir)
-        const posts = await hive.api.getDiscussionsByAuthorBeforeDate('', '', 10, null);
-
-        // Menyembunyikan pesan loading
-        document.getElementById('loading-message').style.display = 'none';
-
-        // Menyiapkan HTML untuk daftar postingan
-        let postListHtml = '';
-        posts.forEach(post => {
-          postListHtml += `
-            <li>
-              <a href="https://peakd.com/@${post.author}/${post.permlink}" target="_blank">
-                ${post.title}
-              </a>
-              <p>Oleh: ${post.author} | Dibuat pada: ${new Date(post.created).toLocaleString()}</p>
-            </li>
-          `;
-        });
-
-        // Menampilkan daftar postingan
-        document.getElementById('post-list').innerHTML = postListHtml;
-
-      } catch (error) {
-        console.error('Error saat mengambil postingan Hive:', error);
-        document.getElementById('loading-message').innerText = 'Gagal memuat postingan.';
-      }
-    }
-
-    // Memanggil fungsi untuk menampilkan postingan saat halaman dimuat
-    getLatestPosts();
-  </script>
+    <div class="mypage">
+        <div id="copiedMessage"></div> <!-- The area where the copied message will appear -->
+        <h1>Latest Posts on Hive</h1>
+        
+        <p>Auto-refresh dalam: <span id="countdown">60 detik</span></p>
+        <button onclick="pauseCountdown()">Pause</button>
+        <button onclick="playCountdown()">Play</button>
+        <div id="discussionsList"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>No</th>
+                    <th>Nama Akun</th>
+                    <th>Judul Postingan</th>
+                    <th>Jumlah Kata</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+        <div id="articleContent"></div>
+    </div>
 </body>
 </html>
