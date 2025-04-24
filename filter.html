@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Latest Posts on Hive</title>
+    <script src="https://cdn.jsdelivr.net/npm/@hiveio/hive-js/dist/hive.min.js"></script>
+    <script>
+        hive.api.setOptions({ url: 'https://api.hive.blog' });
+
+        let refreshTime = 60;
+        let isPaused = false;
+        let timer;
+
+        function searchLatestPosts() {
+            var query = {
+                limit: 50,
+                tag: ''
+            };
+
+            hive.api.getDiscussionsByCreated(query, async function(err, result) {
+                if (err) {
+                    console.error("Error fetching latest discussions:", err);
+                    document.getElementById('discussionsList').innerHTML = "<p>Error fetching posts.</p>";
+                } else {
+                    var tableBody = document.getElementById('tableBody');
+                    var articleContentDiv = document.getElementById('articleContent');
+                    tableBody.innerHTML = '';
+                    articleContentDiv.innerHTML = '';
+
+                    let filteredPosts = [];
+
+                    for (let discussion of result) {
+                        let wordCount = discussion.body.split(/\s+/).length;
+                        if (wordCount < 300) continue;
+
+                        if (discussion.children < 1) continue;
+
+                        let account = await new Promise((resolve) => {
+                            hive.api.getAccounts([discussion.author], function(err, accounts) {
+                                if (err || accounts.length === 0) resolve(null);
+                                else resolve(accounts[0]);
+                            });
+                        });
+
+                        if (!account || account.reputation < 500000000000) continue;
+
+                        filteredPosts.push({ ...discussion, wordCount });
+                        if (filteredPosts.length >= 3) break;
+                    }
+
+                    if (filteredPosts.length === 0) {
+                        tableBody.innerHTML = "<tr><td colspan='4'>Tidak ada artikel yang sesuai.</td></tr>";
+                        return;
+                    }
+
+                    filteredPosts.forEach((post, index) => {
+                        let row = `
+                            <tr style="background-color: #FFD700;">
+                                <td>${index + 1}</td>
+                                <td>${post.author}</td>
+                                <td><a href="https://hive.blog/@${post.author}/${post.permlink}" target="_blank">${post.title}</a></td>
+                                <td>${post.wordCount}</td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+
+                        if (index === 0) {
+                            let contentBody = post.body;
+                            contentBody = contentBody.replace(/https:\/\/(?:images\.hive\.blog|images\.ecency\.com)[^\s]+/g, '');
+                            contentBody = contentBody.replace(/\bhttps?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|bmp|webp)\b/g, '');
+
+                            articleContentDiv.innerHTML = `
+                                <h2>Article Content</h2>
+                                <textarea id="contentToCopy" rows="10" style="width: 100%; font-family: monospace; background-color: #f9f9f9;" readonly>
+Buatkan sebuah komentar dalam bahasa Inggris atau bahasa yang sesuai dengan artikel di bawah ini. Komentar harus relevan dengan topik yang dibahas dalam artikel, setidaknya 95% relevan. Jumlah kata bervariasi antara 115 sd 150 kata. Gaya penulisannya harus seperti anak berusia 10 tahun yang menyenangkan dan agak serius. Jika artikel menyebutkan nama orang, tempat, atau benda tertentu, sebutkan juga dalam komentar salahsatunya. Hasil dari chatgpt jangan ditambahi kata-kata lain, selain sebuah komentar. diakhir komentar setidaknya menanyakan sesuatu. 
+Berikut adalah konten yang perlu ditanggapi :
+
+${contentBody}</textarea>
+                                <button onclick="copyContent()">Copy Content</button>
+                            `;
+                        }
+                    });
+                }
+            });
+        }
+
+        function startCountdown() {
+            let countdown = document.getElementById('countdown');
+            timer = setInterval(() => {
+                if (!isPaused) {
+                    countdown.innerText = refreshTime + " detik";
+                    refreshTime--;
+
+                    if (refreshTime < 0) {
+                        clearInterval(timer);
+                        refreshTime = 60;
+                        searchLatestPosts();
+                        startCountdown();
+                    }
+                }
+            }, 1000);
+        }
+
+        function pauseCountdown() {
+            isPaused = true;
+        }
+
+        function playCountdown() {
+            isPaused = false;
+        }
+
+        function copyContent() {
+            var contentText = document.getElementById('contentToCopy');
+            contentText.select();
+            contentText.setSelectionRange(0, 99999);
+            document.execCommand("copy");
+            showCopiedMessage("Content copied to clipboard!");
+        }
+
+        function showCopiedMessage(message) {
+            var copiedMessageDiv = document.getElementById('copiedMessage');
+            copiedMessageDiv.innerHTML = message;
+            copiedMessageDiv.style.display = 'block';
+            setTimeout(function() {
+                copiedMessageDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        window.onload = function () {
+            searchLatestPosts();
+            startCountdown();
+        };
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        .mypage {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        h1 {
+            font-size: 22px;
+            margin-bottom: 20px;
+            padding-top: 20px;
+        }
+        #countdown {
+            font-size: 18px;
+            font-weight: bold;
+            color: red;
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            background: #fff;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #007BFF;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        tr:hover {
+            background: #f1f1f1;
+        }
+        a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        #articleContent {
+            margin-top: 20px;
+            text-align: left;
+            font-size: 14px;
+            color: #333;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #copiedMessage {
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+            font-size: 16px;
+            border-radius: 5px;
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+        }
+    </style>
+</head>
+<body>
+    <div class="mypage">
+        <div id="copiedMessage"></div>
+        <h1>Latest Posts on Hive</h1>
+        <p>Auto-refresh dalam: <span id="countdown">60 detik</span></p>
+        <button onclick="pauseCountdown()">Pause</button>
+        <button onclick="playCountdown()">Play</button>
+        <div id="discussionsList"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>No</th>
+                    <th>Nama Akun</th>
+                    <th>Judul Postingan</th>
+                    <th>Jumlah Kata</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+        <div id="articleContent"></div>
+    </div>
+</body>
+</html>
