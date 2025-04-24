@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artikel Lengkap</title>
+    <script src="https://cdn.jsdelivr.net/npm/@hiveio/hive-js/dist/hive.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/compressorjs"></script>
+    <script>
+        // Set Hive API options
+        hive.api.setOptions({ url: 'https://api.hive.blog' });
+
+        // Fungsi untuk mengambil artikel berdasarkan author dan permlink dari URL
+        function getArticle() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const author = urlParams.get('author');
+            const permlink = urlParams.get('permlink');
+
+            const query = {
+                author: author,
+                permlink: permlink
+            };
+
+            hive.api.getContent(query.author, query.permlink, function(err, result) {
+                if (err) {
+                    console.error("Error fetching the article:", err);
+                    document.getElementById('articleContent').innerHTML = "<p>Error fetching article.</p>";
+                } else {
+                    const articleContentDiv = document.getElementById('articleContent');
+                    const articleBodyWithImages = convertMarkdownImagesToHTML(result.body);
+                    const articleBodyWithVideo = convertMarkdownVideosToHTML(articleBodyWithImages);
+                    const articleBodyWithLinks = convertMarkdownLinksToHTML(articleBodyWithVideo);
+                    const postDate = new Date(result.created).toLocaleString();
+
+                    articleContentDiv.innerHTML = `
+                        <div class="article-header">
+                            <h2>${result.title}</h2>
+                            <p><strong>${result.author}</strong> in <strong>#touchingsomegrass</strong></p>
+                            <p><a href="https://hive.blog/@${result.author}/${result.permlink}" target="_blank">Lihat Artikel Asli di Hive</a></p>
+                        </div>
+                        <div class="article-body">${articleBodyWithLinks}</div>
+                        <div class="article-footer">
+                            <p>${postDate} by <strong>${result.author}</strong></p>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        // Fungsi untuk mengkonversi gambar markdown menjadi HTML <img>
+        function convertMarkdownImagesToHTML(body) {
+            return body.replace(/!\[([^\]]*)\]\((https?:\/\/[^\)]+(?:\.jpg|\.png|\.gif|\.jpeg|\.webp|hive\.blog\/[^\)]+))\)/g, function(match, alt, url) {
+                return `<img src="${url}" alt="${alt}" loading="lazy" class="responsive-img" />`;
+            });
+        }
+
+        // Fungsi untuk mengkonversi video markdown (YouTube shorts) menjadi HTML <iframe>
+        function convertMarkdownVideosToHTML(body) {
+            return body.replace(/https:\/\/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/g, function(match, videoId) {
+                return `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            });
+        }
+
+        // Fungsi untuk mengkonversi tautan markdown menjadi HTML <a>
+        function convertMarkdownLinksToHTML(body) {
+            return body.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, function(match, text, url) {
+                return `<a href="${url}" target="_blank">${text}</a>`;
+            });
+        }
+
+        window.onload = function() {
+            getArticle();
+        };
+
+        // Fungsi untuk menampilkan/menghilangkan pop-up
+        function togglePopup() {
+            const popup = document.getElementById('popup');
+            popup.classList.toggle('show');
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            line-height: 1.7;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        #articleContent {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+            margin: auto;
+        }
+
+        .article-header {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .article-header h2 {
+            font-size: 26px;
+            margin: 0;
+            color: #333;
+        }
+
+        .article-header p {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .article-body {
+            margin-top: 20px;
+            line-height: 1.8;
+        }
+
+        .article-footer {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+
+        .article-footer p {
+            margin: 5px 0;
+        }
+
+        .responsive-img {
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            border-radius: 5px;
+            display: block;
+            margin: 20px 0;
+        }
+
+        iframe {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .back-button {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+
+        .back-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Pop-up melayang di sebelah kanan */
+        #popup {
+            position: fixed;
+            top: 20%;
+            right: 0;
+            width: 300px;
+            background-color: #fff;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+            z-index: 100;
+        }
+
+        #popup.show {
+            display: block;
+        }
+
+        #popup h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        #popup p {
+            font-size: 14px;
+            color: #333;
+        }
+
+        /* Tombol untuk membuka pop-up */
+        .popup-button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            position: fixed;
+            top: 20%;
+            right: 0;
+            z-index: 200;
+        }
+
+        .popup-button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <h1>Artikel Lengkap</h1>
+        <div id="articleContent">
+            <!-- Konten artikel akan dimuat di sini -->
+        </div>
+    </div>
+    <button class="popup-button" onclick="togglePopup()">Baca Penjelasan</button>
+
+    <!-- Pop-up untuk penjelasan -->
+    <div id="popup">
+        <h3>Penjelasan Artikel</h3>
+        <p>Ini adalah penjelasan singkat tentang artikel ini dalam bahasa Indonesia. Artikel ini membahas tentang...</p>
+        <p>Tambahkan lebih banyak penjelasan sesuai dengan konten artikel yang dimuat di sini.</p>
+    </div>
+
+    <a href="filter.html" class="back-button">Kembali ke Daftar Artikel</a>
+</body>
+</html>
