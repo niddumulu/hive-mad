@@ -1,271 +1,324 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Artikel dan Komentar Hive</title>
-  <script src="https://cdn.jsdelivr.net/npm/@hiveio/hive-js/dist/hive.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/compressorjs"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Article | Ga-zan Blockchain Hive</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
   <style>
     body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      padding: 20px;
-      background-color: #f4f4f4;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      line-height: 1.7;
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f7f7f7;
+      color: #333;
+      line-height: 1.6;
+      overflow-x: hidden;
     }
-
-    h1, h2 {
+    .spinner {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 300px;
+    }
+    .spinner:after {
+      content: "";
+      width: 40px;
+      height: 40px;
+      border: 5px solid #e31337;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-message {
+      color: #e31337;
+      text-align: center;
+      margin-top: 100px;
+      font-size: 20px;
+    }
+    .article-container {
+      background: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 800px;
+      margin: 40px auto;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.6s ease;
+    }
+    .article-container.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .back-button {
+      display: inline-block;
+      margin-bottom: 20px;
+      text-decoration: none;
+      color: #e31337;
+      font-weight: bold;
+      font-size: 16px;
+      transition: color 0.3s;
+    }
+    .back-button:hover { color: #b10e2e; }
+    .article-title { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+    .article-meta { font-size: 14px; color: #777; margin-bottom: 20px; }
+    .cover-image {
+      width: 100%;
+      max-height: 400px;
+      object-fit: cover;
+      border-radius: 10px;
       margin-bottom: 20px;
     }
-
-    #articleContent, #commentsSection, .comment-form {
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 800px;
-      margin-bottom: 30px;
-    }
-
-    .comment {
-      border-bottom: 1px solid #eee;
-      padding: 10px 0;
-    }
-
-    .comment:last-child {
-      border-bottom: none;
-    }
-
-    input, textarea {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-
-    button {
-      background-color: #007BFF;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #0056b3;
-    }
-
-    img.responsive-img, iframe {
+    .article-content img {
       max-width: 100%;
-      border-radius: 5px;
+      border-radius: 8px;
       margin: 20px 0;
+      display: block;
+      object-fit: cover;
+      animation: fadeIn 1s ease;
     }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .comments-wrapper {
+      background: #f1f3f5;
+      padding: 30px 20px;
+      margin-top: 40px;
+    }
+    .comments-section {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .comments-section h3 {
+      margin-bottom: 20px;
+      font-size: 24px;
+      color: #e31337;
+    }
+    .comment {
+      background: #fff;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .comment-author {
+      font-weight: bold;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #555;
+    }
+    .comment-body {
+      font-size: 15px;
+      color: #333;
+    }
+    @media (max-width: 600px) {
+      .article-title { font-size: 24px; }
+      .article-container { margin: 20px 10px; padding: 20px; }
+    }
+
+  .comment-button:hover {
+    background-color: #b10e2e;
+  }
   </style>
 </head>
+
 <body>
 
-  <h1>Artikel Lengkap</h1>
-  <div id="articleContent">
-    <!-- Artikel akan dimuat di sini -->
+<div class="spinner" id="loading-spinner"></div>
+
+<!-- Article Section -->
+<div class="article-container" id="article-container" style="display:none;">
+  <a href="index.html" class="back-button">&larr; Kembali ke Home</a>
+
+  <div class="article-title" id="article-title">Loading...</div>
+  <div class="article-meta" id="article-meta"></div>
+  <img id="cover-image" class="cover-image" style="display:none;" alt="Cover Image">
+  <div class="article-content" id="article-content"></div>
+</div>
+
+
+<!-- Comments Section -->
+<div class="comments-wrapper" id="comments-wrapper" style="display:none;">
+  <div class="comments-section">
+    
+    <!-- Tombol komentar -->
+    <a id="comment-button" href="#" class="comment-button" style="
+      display: inline-block;
+      padding: 12px 40px;
+      background-color: #e31337;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 18px;
+      transition: background-color 0.3s;
+    ">Tulis Komentar</a>
+
+    <h3>Komentar</h3>
+    <div id="comments-list"></div>
   </div>
+</div>
 
-  <h2>Komentar</h2>
-  <div id="commentsSection">
-    <!-- Komentar akan dimuat di sini -->
+
+
+
+<!-- Comments Section -->
+<div class="comments-wrapper" id="comments-wrapper" style="display:none;">
+  <div class="comments-section">
+    <h3>Komentar</h3>
+    <div id="comments-list"></div>
   </div>
+</div>
 
-  <div class="comment-form">
-    <h2>Post Comment</h2>
-    <label>Private Posting Key:</label>
-    <input type="password" id="wif" placeholder="5J..." oninput="saveData()">
+<script>
+// Utility
+function getQueryParam(param) {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(param);
+}
+function findFirstImage(postBody) {
+  const imgRegex = /!\[.*?\]\((.*?)\)/;
+  const htmlImgRegex = /<img.*?src="(.*?)"/;
+  let match = postBody.match(imgRegex) || postBody.match(htmlImgRegex);
+  return match ? match[1] : null;
+}
+function formatDate(dateString) {
+  const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  return new Date(dateString + 'Z').toLocaleDateString('id-ID', options);
+}
+function fixImageUrls(markdown) {
+  return markdown.replace(/!\[(.*?)\]\((.*?)\)/g, (_, alt, url) => {
+    return `<img src="${url}" alt="${alt}" loading="lazy" />`;
+  });
+}
+function timeSince(date) {
+  const seconds = Math.floor((new Date() - new Date(date + 'Z')) / 1000);
+  const intervals = [
+    { label: "year", seconds: 31536000 },
+    { label: "month", seconds: 2592000 },
+    { label: "day", seconds: 86400 },
+    { label: "hour", seconds: 3600 },
+    { label: "minute", seconds: 60 },
+    { label: "second", seconds: 1 }
+  ];
+  for (const {label, seconds: sec} of intervals) {
+    const interval = Math.floor(seconds / sec);
+    if (interval >= 1) return `${interval} ${label}${interval > 1 ? "s" : ""} ago`;
+  }
+  return "just now";
+}
 
-    <label>Hive Username:</label>
-    <input type="text" id="author" placeholder="your-username" oninput="saveData()">
+// Load API
+async function loadDiscussion(author, permlink) {
+  const response = await fetch('https://api.hive.blog', {
+    method: 'POST',
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'bridge.get_discussion',
+      params: { author, permlink },
+      id: 2
+    })
+  });
+  const data = await response.json();
+  return data.result;
+}
 
-    <label>Parent Post URL:</label>
-    <input type="text" id="parent" placeholder="https://hive.blog/@author/permlink">
+function getQueryParam(param) {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(param);
+}
 
-    <label>Comment Body:</label>
-    <textarea id="commentBody" placeholder="Write your comment here..."></textarea>
 
-    <label>Beneficiary Accounts (comma separated):</label>
-    <input type="text" id="beneficiaryAccounts" placeholder="account1, account2" oninput="saveData()">
+// Render Comments
+function renderComments(comments, parentId, depth = 0) {
+  const container = document.getElementById('comments-list');
 
-    <label>Beneficiary Percentages (comma separated, max 100%):</label>
-    <input type="text" id="beneficiaryPercents" placeholder="50,50" oninput="saveData()">
+  Object.values(comments)
+    .filter(comment => comment.parent_author + '/' + comment.parent_permlink === parentId)
+    .forEach(comment => {
+      const div = document.createElement('div');
+      div.className = 'comment';
+      div.style.marginLeft = `${depth * 20}px`;
+      div.innerHTML = `
+        <div class="comment-author">
+          @${comment.author} - ${timeSince(comment.created)}
+        </div>
+        <div class="comment-body">${marked.parse(fixImageUrls(comment.body))}</div>
+      `;
+      container.appendChild(div);
+      renderComments(comments, `${comment.author}/${comment.permlink}`, depth + 1);
+    });
+}
 
-    <button onclick="postComment()">Post Comment</button>
-    <button onclick="clearFields()">Clear URL and Comment</button>
-  </div>
+// Main
+(async () => {
+  const author = getQueryParam('author');
+  const permlink = getQueryParam('permlink');
 
-  <script>
-    hive.api.setOptions({ url: 'https://api.hive.blog' });
+  if (!author || !permlink) {
+    document.getElementById('loading-spinner').style.display = 'none';
+    document.body.innerHTML += `<div class="error-message">Artikel tidak ditemukan. 🙁</div>`;
+    return;
+  }
 
-    window.onload = function() {
-      getArticle();
-      getComments();
-      loadData();
-    };
+  try {
+    const response = await fetch('https://api.hive.blog', {
+      method: 'POST',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'condenser_api.get_content',
+        params: [author, permlink],
+        id: 1
+      })
+    });
+    const data = await response.json();
+    const post = data.result;
 
-    function getArticle() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const author = urlParams.get('author');
-      const permlink = urlParams.get('permlink');
+    document.getElementById('loading-spinner').style.display = 'none';
+    document.getElementById('article-container').style.display = 'block';
+    document.getElementById('comments-wrapper').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('article-container').classList.add('show');
+    }, 100);
 
-      hive.api.getContent(author, permlink, function(err, result) {
-        if (err) {
-          console.error("Error fetching article:", err);
-          document.getElementById('articleContent').innerHTML = "<p>Error fetching article.</p>";
-        } else {
-          const contentDiv = document.getElementById('articleContent');
-          const bodyWithImages = convertMarkdownImagesToHTML(result.body);
-          const bodyWithVideo = convertMarkdownVideosToHTML(bodyWithImages);
-          const bodyWithLinks = convertMarkdownLinksToHTML(bodyWithVideo);
+    document.getElementById('article-title').innerText = post.title;
+    document.getElementById('article-meta').innerText = `Ditulis oleh @${post.author} • ${formatDate(post.created)}`;
 
-          contentDiv.innerHTML = `
-            <h2>${result.title}</h2>
-            <p><strong>by ${result.author}</strong></p>
-            <div>${bodyWithLinks}</div>
-            <p><em>Posted on ${new Date(result.created).toLocaleString()}</em></p>
-          `;
-        }
-      });
+    const imageUrl = findFirstImage(post.body);
+    if (imageUrl) {
+      const coverImage = document.getElementById('cover-image');
+      coverImage.src = imageUrl;
+      coverImage.style.display = 'block';
     }
 
-    function getComments() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const author = urlParams.get('author');
-      const permlink = urlParams.get('permlink');
+    const fixedBody = fixImageUrls(post.body);
+    document.getElementById('article-content').innerHTML = marked.parse(fixedBody);
 
-      hive.api.getContentReplies(author, permlink, function(err, result) {
-        if (err) {
-          console.error("Error fetching comments:", err);
-          document.getElementById('commentsSection').innerHTML = "<p>Error fetching comments.</p>";
-        } else {
-          const commentsDiv = document.getElementById('commentsSection');
-          commentsDiv.innerHTML = '';
+    const discussion = await loadDiscussion(author, permlink);
+    renderComments(discussion, `${author}/${permlink}`);
+  } catch (error) {
+    console.error(error);
+    document.getElementById('loading-spinner').style.display = 'none';
+    document.body.innerHTML += `<div class="error-message">Gagal memuat artikel. 🚫</div>`;
+  }
+})();
+// Ambil parameter author dan permlink dari URL
+const author = getQueryParam('author');
+const permlink = getQueryParam('permlink');
 
-          result.forEach(comment => {
-            const commentBody = convertMarkdownImagesToHTML(comment.body);
-            commentsDiv.innerHTML += `
-              <div class="comment">
-                <p><strong>${comment.author}</strong> says:</p>
-                <p>${commentBody}</p>
-                <hr>
-              </div>
-            `;
-          });
-        }
-      });
-    }
+// Periksa apakah parameter author dan permlink ada
+if (author && permlink) {
+  // Temukan tombol komentar berdasarkan ID
+  const commentButton = document.getElementById('comment-button');
+  
+  // Ubah href tombol komentar dengan parameter yang benar
+  commentButton.href = `comment.html?author=${author}&permlink=${permlink}`;
+}
 
-    function convertMarkdownImagesToHTML(body) {
-      return body.replace(/!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g, (match, alt, url) => {
-        return `<img src="${url}" alt="${alt}" loading="lazy" class="responsive-img"/>`;
-      });
-    }
-
-    function convertMarkdownVideosToHTML(body) {
-      return body.replace(/https:\/\/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/g, (match, videoId) => {
-        return `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
-      });
-    }
-
-    function convertMarkdownLinksToHTML(body) {
-      return body.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, (match, text, url) => {
-        return `<a href="${url}" target="_blank">${text}</a>`;
-      });
-    }
-
-    function postComment() {
-      const wif = document.getElementById('wif').value.trim();
-      const author = document.getElementById('author').value.trim();
-      const parentUrl = document.getElementById('parent').value.trim();
-      const body = document.getElementById('commentBody').value.trim();
-      const permlink = 'comment-' + Date.now();
-      const beneficiaryAccounts = document.getElementById('beneficiaryAccounts').value.split(',').map(acc => acc.trim()).filter(Boolean);
-      const beneficiaryPercents = document.getElementById('beneficiaryPercents').value.split(',').map(pct => parseInt(pct.trim()) * 100).filter(Boolean);
-
-      if (!/^5[HJK][1-9A-HJ-NP-Za-km-z]{49}$/.test(wif)) {
-        alert("Invalid Private Posting Key format!");
-        return;
-      }
-
-      const urlParts = parentUrl.match(/^https:\/\/hive.blog\/@([\w.-]+)\/([\w-]+)$/);
-      if (!urlParts) {
-        alert("Invalid Parent URL format!");
-        return;
-      }
-      const parentAuthor = urlParts[1];
-      const parentPermlink = urlParts[2];
-
-      if (!wif || !author || !parentAuthor || !parentPermlink || !body) {
-        alert("Please fill in all fields.");
-        return;
-      }
-
-      let extensions = [];
-      if (beneficiaryAccounts.length > 0 && beneficiaryPercents.length > 0 && beneficiaryAccounts.length === beneficiaryPercents.length) {
-        const totalWeight = beneficiaryPercents.reduce((sum, w) => sum + w, 0);
-        if (totalWeight > 10000) {
-          alert("Total beneficiary percentage cannot exceed 100%.");
-          return;
-        }
-
-        const beneficiaries = beneficiaryAccounts.map((account, idx) => ({ account: account, weight: beneficiaryPercents[idx] }));
-        extensions = [[0, { beneficiaries }]];
-      }
-
-      const jsonMetadata = JSON.stringify({ tags: ['comment'], app: 'newPost/v1.0' });
-
-      hive.broadcast.comment(
-        wif,
-        parentAuthor,
-        parentPermlink,
-        author,
-        permlink,
-        '',
-        body,
-        jsonMetadata,
-        function (err, result) {
-          if (err) {
-            console.error("Error posting comment:", err);
-            alert('Error posting comment: ' + err.message);
-          } else {
-            console.log("Comment posted successfully!", result);
-            alert('Comment posted successfully!');
-            clearFields();
-            getComments(); // Reload comments setelah posting
-          }
-        }
-      );
-    }
-
-    function saveData() {
-      localStorage.setItem('hiveUsername', document.getElementById('author').value.trim());
-      localStorage.setItem('postingKey', document.getElementById('wif').value.trim());
-      localStorage.setItem('beneficiaryAccounts', document.getElementById('beneficiaryAccounts').value.trim());
-      localStorage.setItem('beneficiaryPercents', document.getElementById('beneficiaryPercents').value.trim());
-    }
-
-    function loadData() {
-      document.getElementById('author').value = localStorage.getItem('hiveUsername') || '';
-      document.getElementById('wif').value = localStorage.getItem('postingKey') || '';
-      document.getElementById('beneficiaryAccounts').value = localStorage.getItem('beneficiaryAccounts') || '';
-      document.getElementById('beneficiaryPercents').value = localStorage.getItem('beneficiaryPercents') || '';
-    }
-
-    function clearFields() {
-      document.getElementById('parent').value = '';
-      document.getElementById('commentBody').value = '';
-    }
-  </script>
+</script>
 
 </body>
 </html>
