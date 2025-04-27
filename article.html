@@ -1,271 +1,175 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Artikel dan Komentar Hive</title>
-  <script src="https://cdn.jsdelivr.net/npm/@hiveio/hive-js/dist/hive.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/compressorjs"></script>
-  <style>
-    body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      padding: 20px;
-      background-color: #f4f4f4;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      line-height: 1.7;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Latest Posts on Hive</title>
+    <script src="https://cdn.jsdelivr.net/npm/@hiveio/hive-js/dist/hive.min.js"></script>
+    <script>
+        // Set Hive API options
+        hive.api.setOptions({ url: 'https://api.hive.blog' });
 
-    h1, h2 {
-      margin-bottom: 20px;
-    }
+        let refreshTime = 60; // Waktu mundur dalam detik (60 detik)
+        let isPaused = false; // Flag to track if the countdown is paused
+        let timer; // To store the countdown interval
 
-    #articleContent, #commentsSection, .comment-form {
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 800px;
-      margin-bottom: 30px;
-    }
+        function searchLatestPosts() {
+            var query = {
+                limit: 20, // Fetch latest 20 posts to filter later
+                tag: '' // No specific tag
+            };
 
-    .comment {
-      border-bottom: 1px solid #eee;
-      padding: 10px 0;
-    }
+            hive.api.getDiscussionsByCreated(query, function(err, result) {
+                if (err) {
+                    console.error("Error fetching latest discussions:", err);
+                    document.getElementById('discussionsList').innerHTML = "<p>Error fetching posts.</p>";
+                } else {
+                    var output = document.getElementById('discussionsList');
+                    output.innerHTML = ''; // Clear previous results
 
-    .comment:last-child {
-      border-bottom: none;
-    }
+                    // Filter posts to get:
+                    // - Articles with word count >= 300
+                    // - Articles created within the last 3 days
+                    // - Author reputation >= 40
+                    let validPosts = result.filter(function(discussion) {
+                        let wordCount = discussion.body.split(/\s+/).length; // Count words
+                        let postDate = new Date(discussion.created); // Post date
+                        let currentDate = new Date(); // Current date
+                        let timeDiff = (currentDate - postDate) / (1000 * 3600 * 24); // Time difference in days
+                        let reputation = discussion.author_reputation;
 
-    input, textarea {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
+                        return wordCount >= 300 && timeDiff <= 3 && reputation >= 40; // Filter based on rules
+                    });
 
-    button {
-      background-color: #007BFF;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
+                    if (validPosts.length > 0) {
+                        // Display the valid posts
+                        validPosts.forEach((selectedPost, index) => {
+                            let row = `
+                                <div class="post-card">
+                                    <p><strong>No:</strong> ${index + 1}</p>
+                                    <p><strong>Account Name:</strong> ${selectedPost.author}</p>
+                                    <p><strong>Post Title:</strong> <a href="https://hive.blog/@${selectedPost.author}/${selectedPost.permlink}" target="_blank">${selectedPost.title}</a></p>
+                                    <p><strong>Word Count:</strong> ${selectedPost.body.split(/\s+/).length}</p>
+                                    <!-- Tombol baca selengkapnya yang mengarah ke halaman baru -->
+                                    <button onclick="window.location.href='article.html?author=${selectedPost.author}&permlink=${selectedPost.permlink}'">Baca Selengkapnya</button>
+                                </div>
+                            `;
+                            output.innerHTML += row;
+                        });
+                    } else {
+                        output.innerHTML = "<p>No posts found matching the criteria.</p>";
+                    }
+                }
+            });
+        }
 
-    button:hover {
-      background-color: #0056b3;
-    }
+        // Countdown timer for auto-refresh
+        function startCountdown() {
+            let countdown = document.getElementById('countdown');
+            timer = setInterval(() => {
+                if (!isPaused) {
+                    countdown.innerText = refreshTime + " detik";
+                    refreshTime--;
 
-    img.responsive-img, iframe {
-      max-width: 100%;
-      border-radius: 5px;
-      margin: 20px 0;
-    }
-  </style>
+                    if (refreshTime < 0) {
+                        clearInterval(timer);
+                        refreshTime = 60; // Reset timer to 60 seconds
+                        searchLatestPosts(); // Refresh posts
+                        startCountdown(); // Restart countdown
+                    }
+                }
+            }, 1000);
+        }
+
+        // Pause the countdown
+        function pauseCountdown() {
+            isPaused = true;
+        }
+
+        // Resume the countdown
+        function playCountdown() {
+            isPaused = false;
+        }
+
+        // Automatically load posts and start countdown when the page loads
+        window.onload = function () {
+            searchLatestPosts();
+            startCountdown();
+        };
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        .mypage {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        h1 {
+            font-size: 22px;
+            margin-bottom: 20px;
+            padding-top: 20px;
+        }
+        p {
+            font-size: 14px;
+            color: #555;
+        }
+        #countdown {
+            font-size: 18px;
+            font-weight: bold;
+            color: red;
+            margin-bottom: 10px;
+        }
+        a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .post-card {
+            background-color: #fff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
+        .post-card p {
+            font-size: 14px;
+            color: #333;
+            margin: 5px 0;
+        }
+    </style>
 </head>
 <body>
-
-  <h1>Artikel Lengkap</h1>
-  <div id="articleContent">
-    <!-- Artikel akan dimuat di sini -->
-  </div>
-
-  <h2>Komentar</h2>
-  <div id="commentsSection">
-    <!-- Komentar akan dimuat di sini -->
-  </div>
-
-  <div class="comment-form">
-    <h2>Post Comment</h2>
-    <label>Private Posting Key:</label>
-    <input type="password" id="wif" placeholder="5J..." oninput="saveData()">
-
-    <label>Hive Username:</label>
-    <input type="text" id="author" placeholder="your-username" oninput="saveData()">
-
-    <label>Parent Post URL:</label>
-    <input type="text" id="parent" placeholder="https://hive.blog/@author/permlink">
-
-    <label>Comment Body:</label>
-    <textarea id="commentBody" placeholder="Write your comment here..."></textarea>
-
-    <label>Beneficiary Accounts (comma separated):</label>
-    <input type="text" id="beneficiaryAccounts" placeholder="account1, account2" oninput="saveData()">
-
-    <label>Beneficiary Percentages (comma separated, max 100%):</label>
-    <input type="text" id="beneficiaryPercents" placeholder="50,50" oninput="saveData()">
-
-    <button onclick="postComment()">Post Comment</button>
-    <button onclick="clearFields()">Clear URL and Comment</button>
-  </div>
-
-  <script>
-    hive.api.setOptions({ url: 'https://api.hive.blog' });
-
-    window.onload = function() {
-      getArticle();
-      getComments();
-      loadData();
-    };
-
-    function getArticle() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const author = urlParams.get('author');
-      const permlink = urlParams.get('permlink');
-
-      hive.api.getContent(author, permlink, function(err, result) {
-        if (err) {
-          console.error("Error fetching article:", err);
-          document.getElementById('articleContent').innerHTML = "<p>Error fetching article.</p>";
-        } else {
-          const contentDiv = document.getElementById('articleContent');
-          const bodyWithImages = convertMarkdownImagesToHTML(result.body);
-          const bodyWithVideo = convertMarkdownVideosToHTML(bodyWithImages);
-          const bodyWithLinks = convertMarkdownLinksToHTML(bodyWithVideo);
-
-          contentDiv.innerHTML = `
-            <h2>${result.title}</h2>
-            <p><strong>by ${result.author}</strong></p>
-            <div>${bodyWithLinks}</div>
-            <p><em>Posted on ${new Date(result.created).toLocaleString()}</em></p>
-          `;
-        }
-      });
-    }
-
-    function getComments() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const author = urlParams.get('author');
-      const permlink = urlParams.get('permlink');
-
-      hive.api.getContentReplies(author, permlink, function(err, result) {
-        if (err) {
-          console.error("Error fetching comments:", err);
-          document.getElementById('commentsSection').innerHTML = "<p>Error fetching comments.</p>";
-        } else {
-          const commentsDiv = document.getElementById('commentsSection');
-          commentsDiv.innerHTML = '';
-
-          result.forEach(comment => {
-            const commentBody = convertMarkdownImagesToHTML(comment.body);
-            commentsDiv.innerHTML += `
-              <div class="comment">
-                <p><strong>${comment.author}</strong> says:</p>
-                <p>${commentBody}</p>
-                <hr>
-              </div>
-            `;
-          });
-        }
-      });
-    }
-
-    function convertMarkdownImagesToHTML(body) {
-      return body.replace(/!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g, (match, alt, url) => {
-        return `<img src="${url}" alt="${alt}" loading="lazy" class="responsive-img"/>`;
-      });
-    }
-
-    function convertMarkdownVideosToHTML(body) {
-      return body.replace(/https:\/\/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/g, (match, videoId) => {
-        return `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
-      });
-    }
-
-    function convertMarkdownLinksToHTML(body) {
-      return body.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, (match, text, url) => {
-        return `<a href="${url}" target="_blank">${text}</a>`;
-      });
-    }
-
-    function postComment() {
-      const wif = document.getElementById('wif').value.trim();
-      const author = document.getElementById('author').value.trim();
-      const parentUrl = document.getElementById('parent').value.trim();
-      const body = document.getElementById('commentBody').value.trim();
-      const permlink = 'comment-' + Date.now();
-      const beneficiaryAccounts = document.getElementById('beneficiaryAccounts').value.split(',').map(acc => acc.trim()).filter(Boolean);
-      const beneficiaryPercents = document.getElementById('beneficiaryPercents').value.split(',').map(pct => parseInt(pct.trim()) * 100).filter(Boolean);
-
-      if (!/^5[HJK][1-9A-HJ-NP-Za-km-z]{49}$/.test(wif)) {
-        alert("Invalid Private Posting Key format!");
-        return;
-      }
-
-      const urlParts = parentUrl.match(/^https:\/\/hive.blog\/@([\w.-]+)\/([\w-]+)$/);
-      if (!urlParts) {
-        alert("Invalid Parent URL format!");
-        return;
-      }
-      const parentAuthor = urlParts[1];
-      const parentPermlink = urlParts[2];
-
-      if (!wif || !author || !parentAuthor || !parentPermlink || !body) {
-        alert("Please fill in all fields.");
-        return;
-      }
-
-      let extensions = [];
-      if (beneficiaryAccounts.length > 0 && beneficiaryPercents.length > 0 && beneficiaryAccounts.length === beneficiaryPercents.length) {
-        const totalWeight = beneficiaryPercents.reduce((sum, w) => sum + w, 0);
-        if (totalWeight > 10000) {
-          alert("Total beneficiary percentage cannot exceed 100%.");
-          return;
-        }
-
-        const beneficiaries = beneficiaryAccounts.map((account, idx) => ({ account: account, weight: beneficiaryPercents[idx] }));
-        extensions = [[0, { beneficiaries }]];
-      }
-
-      const jsonMetadata = JSON.stringify({ tags: ['comment'], app: 'newPost/v1.0' });
-
-      hive.broadcast.comment(
-        wif,
-        parentAuthor,
-        parentPermlink,
-        author,
-        permlink,
-        '',
-        body,
-        jsonMetadata,
-        function (err, result) {
-          if (err) {
-            console.error("Error posting comment:", err);
-            alert('Error posting comment: ' + err.message);
-          } else {
-            console.log("Comment posted successfully!", result);
-            alert('Comment posted successfully!');
-            clearFields();
-            getComments(); // Reload comments setelah posting
-          }
-        }
-      );
-    }
-
-    function saveData() {
-      localStorage.setItem('hiveUsername', document.getElementById('author').value.trim());
-      localStorage.setItem('postingKey', document.getElementById('wif').value.trim());
-      localStorage.setItem('beneficiaryAccounts', document.getElementById('beneficiaryAccounts').value.trim());
-      localStorage.setItem('beneficiaryPercents', document.getElementById('beneficiaryPercents').value.trim());
-    }
-
-    function loadData() {
-      document.getElementById('author').value = localStorage.getItem('hiveUsername') || '';
-      document.getElementById('wif').value = localStorage.getItem('postingKey') || '';
-      document.getElementById('beneficiaryAccounts').value = localStorage.getItem('beneficiaryAccounts') || '';
-      document.getElementById('beneficiaryPercents').value = localStorage.getItem('beneficiaryPercents') || '';
-    }
-
-    function clearFields() {
-      document.getElementById('parent').value = '';
-      document.getElementById('commentBody').value = '';
-    }
-  </script>
-
+    <div class="mypage">
+        <h1>Latest Posts on Hive</h1>
+        <p>Auto-refresh in: <span id="countdown">60 detik</span></p>
+        <button onclick="pauseCountdown()">Pause</button>
+        <button onclick="playCountdown()">Play</button>
+        <div id="discussionsList"></div>
+    </div>
 </body>
 </html>
