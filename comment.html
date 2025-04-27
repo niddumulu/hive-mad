@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post Comment on Hive</title>
+    <script src="https://cdn.jsdelivr.net/npm/@hiveio/hive-js/dist/hive.min.js"></script>
+    <script>
+        hive.api.setOptions({ url: 'https://api.hive.blog' });
+
+        function fetchChainID() {
+            hive.api.getConfig(function(err, result) {
+                if (!err && result.HIVE_CHAIN_ID) {
+                    hive.config.set('chain_id', result.HIVE_CHAIN_ID);
+                    console.log("[INFO] Chain ID set to:", result.HIVE_CHAIN_ID);
+                } else {
+                    console.error("[ERROR] Failed to fetch Chain ID:", err);
+                }
+            });
+        }
+
+        function loadData() {
+            const fields = ['hiveUsername', 'postingKey', 'beneficiaryAccounts', 'beneficiaryPercents'];
+            fields.forEach(field => {
+                const value = localStorage.getItem(field);
+                if (value && document.getElementById(fieldMapping(field))) {
+                    document.getElementById(fieldMapping(field)).value = value;
+                }
+            });
+        }
+
+        function fieldMapping(key) {
+            const mapping = {
+                hiveUsername: 'author',
+                postingKey: 'wif',
+                beneficiaryAccounts: 'beneficiaryAccounts',
+                beneficiaryPercents: 'beneficiaryPercents'
+            };
+            return mapping[key];
+        }
+
+        function saveData() {
+            localStorage.setItem('hiveUsername', document.getElementById('author').value.trim());
+            localStorage.setItem('postingKey', document.getElementById('wif').value.trim());
+            localStorage.setItem('beneficiaryAccounts', document.getElementById('beneficiaryAccounts').value.trim());
+            localStorage.setItem('beneficiaryPercents', document.getElementById('beneficiaryPercents').value.trim());
+        }
+
+        function clearFields() {
+            document.getElementById('parent').value = "";
+            document.getElementById('commentBody').value = "";
+        }
+
+        function postComment() {
+            const wif = document.getElementById('wif').value.trim();
+            const author = document.getElementById('author').value.trim();
+            const parentUrl = document.getElementById('parent').value.trim();
+            const body = document.getElementById('commentBody').value.trim();
+            const permlink = 'comment-' + Date.now();
+
+            if (!/^5[HJK][1-9A-HJ-NP-Za-km-z]{49}$/.test(wif)) {
+                alert("Invalid Private Posting Key format!");
+                return;
+            }
+
+            const urlParts = parentUrl.match(/^https:\/\/hive.blog\/@([\w.-]+)\/([\w-]+)$/);
+            if (!urlParts) {
+                alert("Invalid Parent URL format! Use: https://hive.blog/@author/permlink");
+                return;
+            }
+
+            const parentAuthor = urlParts[1];
+            const parentPermlink = urlParts[2];
+
+            if (!wif || !author || !parentAuthor || !parentPermlink || !body) {
+                alert("Please fill in all fields.");
+                return;
+            }
+
+            const beneficiaryAccounts = document.getElementById('beneficiaryAccounts').value.split(',').map(acc => acc.trim()).filter(Boolean);
+            const beneficiaryPercents = document.getElementById('beneficiaryPercents').value.split(',').map(pct => parseInt(pct.trim()) * 100).filter(Boolean);
+
+            let extensions = [];
+            if (beneficiaryAccounts.length > 0 && beneficiaryAccounts.length === beneficiaryPercents.length) {
+                const totalWeight = beneficiaryPercents.reduce((sum, weight) => sum + weight, 0);
+                if (totalWeight > 10000) {
+                    alert("Total beneficiary percentage cannot exceed 100%.");
+                    return;
+                }
+                extensions = [[0, { beneficiaries: beneficiaryAccounts.map((acc, i) => ({ account: acc, weight: beneficiaryPercents[i] })) }]]; 
+            }
+
+            const jsonMetadata = JSON.stringify({
+                tags: ['comment'],
+                app: 'newPost/v1.0'
+            });
+
+            console.log("[INFO] Posting comment:", {author, parentAuthor, parentPermlink, permlink});
+
+            hive.broadcast.comment(
+                wif,
+                parentAuthor,
+                parentPermlink,
+                author,
+                permlink,
+                '',
+                body,
+                jsonMetadata,
+                function (err, result) {
+                    if (err) {
+                        console.error("[ERROR] Failed to post comment:", err);
+                        alert('Error posting comment: ' + err.message);
+                    } else {
+                        console.log("[SUCCESS] Comment posted!", result);
+                        setCommentOptions(wif, author, permlink, extensions, function(success) {
+                            if (success) {
+                                alert('Comment and Beneficiaries set successfully!');
+                            } else {
+                                alert('Comment posted, but failed to set beneficiaries.');
+                            }
+                        });
+                    }
+                }
+            );
+        }
+
+        function setCommentOptions(wif, author, permlink, extensions, callback) {
+            if (!extensions.length) {
+                callback(true);
+                return;
+            }
+
+            hive.broadcast.commentOptions(
+                wif,
+                author,
+                permlink,
+                "1000000.000 HBD",  // Max payout
+                10000,              // 100% HBD rewards
+                true,               // Allow votes
+                true,               // Allow curation rewards
+                extensions,
+                function(err, result) {
+                    if (err) {
+                        console.error("[ERROR] Failed to set comment options:", err);
+                        callback(false);
+                    } else {
+                        console.log("[SUCCESS] Comment options set!", result);
+                        callback(true);
+                    }
+                }
+            );
+        }
+
+        window.onload = function() {
+            fetchChainID();
+            loadData();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const authorParam = urlParams.get('author');
+            const permlinkParam = urlParams.get('permlink');
+
+            if (authorParam && permlinkParam) {
+                const parentUrlField = document.getElementById('parent');
+                // Format the URL to be properly inserted
+                parentUrlField.value = `https://hive.blog/@${authorParam}/${permlinkParam}`;
+                console.log("[INFO] Auto-filled Parent Post URL:", parentUrlField.value);
+                document.getElementById('commentBody').focus();
+            } else {
+                console.log("[INFO] No URL parameters provided.");
+            }
+        };
+    </script>
+</head>
+<body>
+    <h2>Post Comment to Hive</h2>
+
+    <label>Private Posting Key:</label><br>
+    <input type="password" id="wif" placeholder="5J..." oninput="saveData()"><br><br>
+
+    <label>Your Hive Username:</label><br>
+    <input type="text" id="author" placeholder="your-username" oninput="saveData()"><br><br>
+
+    <label>Parent Post URL:</label><br>
+    <input type="text" id="parent" placeholder="https://hive.blog/@author/permlink"><br><br>
+
+    <label>Comment Body:</label><br>
+    <textarea id="commentBody" placeholder="Write your comment here..." rows="6"></textarea><br><br>
+
+    <label>Beneficiary Accounts (comma separated):</label><br>
+    <input type="text" id="beneficiaryAccounts" placeholder="account1, account2" oninput="saveData()"><br><br>
+
+    <label>Beneficiary Percentages (comma separated, total max 100%):</label><br>
+    <input type="text" id="beneficiaryPercents" placeholder="50, 50" oninput="saveData()"><br><br>
+
+    <button onclick="postComment()">Post Comment</button>
+    <button onclick="clearFields()">Clear URL and Comment</button>
+</body>
+</html>
